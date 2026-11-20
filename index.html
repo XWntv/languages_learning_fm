@@ -135,6 +135,11 @@ hr.l{border:0;border-top:1px solid #EBF0EE;margin:14px 0}
 @media (max-width:640px){#app{padding:12px 14px calc(120px + env(safe-area-inset-bottom))}.card{padding:18px}.side{width:100%}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 :focus-visible{outline:3px solid var(--sky);outline-offset:2px}
+
+[hidden]{display:none!important}
+
+a.chip{text-decoration:none;color:var(--ink)}
+a.chip:hover{background:var(--sage-l)}
 </style>
 </head>
 <body>
@@ -241,7 +246,7 @@ function svg(k,s){return '<svg viewBox="0 0 24 24" aria-hidden="true"'+(s?' widt
 var S;
 function load(){try{var r=localStorage.getItem(KEY);if(r){var o=JSON.parse(r);if(o&&o.lessons)return o}}catch(e){}return null}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
-function fix(o){var d=SEED();for(var k in d){if(o[k]===undefined)o[k]=d[k]}for(var k2 in d.set){if(o.set[k2]===undefined)o.set[k2]=d.set[k2]}if(!o.ui.lang)o.ui.lang='fr';return o}
+function fix(o){var d=SEED();for(var k in d){if(o[k]===undefined)o[k]=d[k]}for(var k2 in d.set){if(o.set[k2]===undefined)o.set[k2]=d.set[k2]}if(!o.ui.lang)o.ui.lang='fr';if(!o.kinds)o.kinds={};return o}
 S=fix(load()||SEED());
 var U={vf:{lesson:'all',state:'all',q:'',view:'list'},deck:{i:0,flip:false},sel:null,rd:'read',rev:{},tr:false,gf:'all'};
 var R=null; // review session
@@ -337,22 +342,54 @@ V.lang=function(a){
   '<div class="card row sp" style="margin-bottom:18px"><div><div class="b">Hôm nay cần ôn</div><div class="mute sm">'+c.due+' thẻ đến hạn · '+c.nw+' thẻ mới</div></div><a class="btn sage sm" href="#/run/'+l+'">Ôn ngay</a></div>'+
   '<div class="grid g3"><a class="tile" href="#/books"><h3>Sách</h3><p class="mute sm">Chọn bài theo quyển, unit, leçon</p></a><a class="tile" href="#/kho"><h3>Kho</h3><p class="mute sm">Tra cứu từ vựng, ngữ pháp, ghi chú</p></a><a class="tile" href="#/review"><h3>Ôn</h3><p class="mute sm">Lặp lại ngắt quãng (SRS)</p></a></div>'};
 };
-V.books=function(){
- var l=L(),ls=lessonsOf(l),by={};
- ls.forEach(function(x){var k=x.book+'|'+x.unit;(by[k]=by[k]||[]).push(x)});
- var h=Object.keys(by).map(function(k){var p=k.split('|');
-  return '<div class="gh">'+esc(p[0])+' · '+esc(p[1])+'</div><div class="stack">'+by[k].sort(function(a,b){return a.no-b.no}).map(function(x){
-   var pr=S.prog[x.id]||{};
-   return '<a class="rw" href="#/lesson/'+x.id+'"><div class="num'+(pr.read&&pr.vocab&&pr.grammar&&pr.practice?' done':'')+'">'+esc(x.no)+'</div><div class="grow"><div class="b">'+esc(x.name)+(x.title?' · '+esc(x.title):'')+'</div><div class="mute sm">'+esc(x.summary||'')+'</div></div><div class="dots" title="Đọc · Từ · Ngữ pháp · Luyện tập">'+['read','vocab','grammar','practice'].map(function(q){return '<i class="'+(pr[q]?'on':'')+'"></i>'}).join('')+'</div></a>';
-  }).join('')+'</div>'}).join('');
- return {nav:'books',html:topbar([['Trang chủ','#/home'],[LANGS[l].full,'#/lang/'+l],['Sách']])+'<h1 class="disp">Sách · '+LANGS[l].n+'</h1>'+(h||'<div style="margin-top:18px">'+empty('Chưa có bài nào.',addLink())+'</div>')+(h?'<a class="rw dash" href="#/add" style="margin-top:16px"><div class="num">+</div><div class="grow b">Thêm bài mới</div></a>':'')};
+var E=encodeURIComponent;
+function nat(x,y){return String(x).localeCompare(String(y),'vi',{numeric:true})}
+function norm(t){return String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'')}
+function canon(t,list){t=String(t||'').trim();var k=norm(t);for(var i=0;i<list.length;i++)if(norm(list[i])===k)return list[i];return t}
+function bookList(l){var b=[];S.lessons.forEach(function(x){if(x.lang===l&&b.indexOf(x.book)<0)b.push(x.book)});return b.sort(nat)}
+function unitList(l,book){var u=[];S.lessons.forEach(function(x){if(x.lang===l&&(!book||x.book===book)&&x.unit&&u.indexOf(x.unit)<0)u.push(x.unit)});return u.sort(nat)}
+function kindOf(l,b){return (S.kinds&&S.kinds[l+'|'+b])||'text'}
+function placeHTML(p,l){
+ p=p||{};var bs=bookList(l),isNew=p.book&&bs.indexOf(p.book)<0;
+ return '<div class="fgrid"><label class="f">Sách<select class="in" name="book" data-in="bookSel"><option value="">(theo dữ liệu JSON / không gắn bài)</option>'+bs.map(function(b){return '<option value="'+esc(b)+'"'+(p.book===b?' selected':'')+'>'+esc(b)+'</option>'}).join('')+'<option value="__new"'+(isNew?' selected':'')+'>+ Sách mới…</option></select></label>'+
+ '<label class="f" id="bnw"'+(isNew?'':' hidden')+'>Tên sách mới<input class="in" name="bookNew" value="'+esc(isNew?p.book:'')+'"></label>'+
+ '<label class="f">Unit<input class="in" name="unit" list="ul" value="'+esc(p.unit||'')+'" placeholder="Unité 1"><datalist id="ul">'+unitList(l).map(function(u){return '<option value="'+esc(u)+'">'}).join('')+'</datalist></label>'+
+ '<label class="f">Số bài<input class="in" type="number" name="no" min="0" value="'+esc(p.no||'')+'"></label>'+
+ '<label class="f">Tên bài (trống = tự đặt)<input class="in" name="name" value="'+esc(p.name||'')+'" placeholder="Leçon 3"></label></div>';
+}
+function readPlace(f,l){
+ var d=new FormData(f),b=d.get('book');if(b==='__new')b=d.get('bookNew')||'';
+ return {book:canon(b,bookList(l)),unit:canon(d.get('unit'),unitList(l)),no:+d.get('no')||'',name:String(d.get('name')||'').trim()};
+}
+function lcrumbs(x,tail){return [['Trang chủ','#/home'],['Sách','#/books'],[x.book],[x.unit,'#/books/'+E(x.book)+'/'+E(x.unit)]].concat(tail)}
+V.books=function(a){
+ a=a||[];var l=L(),ls=lessonsOf(l),book=a[1],unit=a[2];
+ var base=[['Trang chủ','#/home'],[LANGS[l].full,'#/lang/'+l]];
+ var addRow='<a class="rw dash" href="#/add" style="margin-top:16px"><div class="num">+</div><div class="grow b">Thêm bài mới</div></a>';
+ if(book&&(unit||a.length>2)){
+  var items=ls.filter(function(x){return x.book===book&&x.unit===unit}).sort(function(x,y){return nat(x.no,y.no)});
+  return {nav:'books',html:topbar(base.concat([['Sách','#/books'],[book],[unit]]))+'<div class="row sp"><h1 class="disp">'+esc(unit||'(chưa có unit)')+'</h1><button class="chip" data-act="editunit" data-b="'+esc(book)+'" data-u="'+esc(unit)+'">✎ Sửa tên unit</button></div><p class="mute" style="margin:6px 0 16px">'+esc(book)+'</p><div class="stack">'+
+   (items.map(function(x){var pr=S.prog[x.id]||{};
+    return '<div class="row" style="flex-wrap:nowrap"><a class="rw grow" href="#/lesson/'+x.id+'"><div class="num'+(pr.read&&pr.vocab&&pr.grammar&&pr.practice?' done':'')+'">'+esc(x.no)+'</div><div class="grow"><div class="b">'+esc(x.name)+(x.title?' · '+esc(x.title):'')+'</div><div class="mute sm">'+esc(x.summary||'')+'</div></div><div class="dots" title="Đọc · Từ · Ngữ pháp · Luyện tập">'+['read','vocab','grammar','practice'].map(function(q){return '<i class="'+(pr[q]?'on':'')+'"></i>'}).join('')+'</div></a><button class="chip" data-act="editlesson" data-id="'+x.id+'" aria-label="Sửa vị trí bài '+esc(x.name)+'">✎</button></div>'}).join('')||empty('Chưa có bài nào.'))+'</div>'+addRow};
+ }
+ var last=S.ui.last,lr=last&&last.lang===l&&lesson(last.lesson);
+ var groups=[['text','Giáo trình'],['ext','Tài liệu ngoài']],h='';
+ groups.forEach(function(g){
+  var bs=bookList(l).filter(function(b){return kindOf(l,b)===g[0]});if(!bs.length)return;
+  h+='<div class="gh">'+g[1]+'</div><div class="stack">'+bs.map(function(bk){
+   var us=unitList(l,bk),n=ls.filter(function(x){return x.book===bk}).length,nu=ls.filter(function(x){return x.book===bk&&!x.unit}).length;
+   return '<div class="card"><div class="row sp"><div class="row"><div class="ic" style="background:var(--sage-l)">'+svg('book',22)+'</div><div><h3>'+esc(bk)+'</h3><p class="mute sm">'+us.length+' unit · '+n+' bài</p></div></div><button class="chip" data-act="editbook" data-b="'+esc(bk)+'">✎ Sửa</button></div>'+
+    '<div class="row" style="margin-top:14px">'+us.map(function(u){return '<a class="chip" href="#/books/'+E(bk)+'/'+E(u)+'">'+esc(u)+'</a>'}).join('')+(nu?'<a class="chip" href="#/books/'+E(bk)+'/">(chưa có unit) '+nu+'</a>':'')+'</div></div>'}).join('')+'</div>'});
+ return {nav:'books',html:topbar(base.concat([['Sách']]))+'<h1 class="disp">Sách · '+LANGS[l].n+'</h1><p class="mute" style="margin:6px 0 16px">Tủ sách</p>'+
+  (lr?'<a class="rw now" href="#/lesson/'+lr.id+'" style="margin-bottom:6px"><div class="num cur">▶</div><div class="grow"><div class="b">Tiếp tục: '+esc(lr.name)+'</div><div class="mute sm">'+esc(lr.book)+' · '+esc(lr.unit)+'</div></div><span>›</span></a>':'')+
+  (h||'<div style="margin-top:18px">'+empty('Chưa có sách nào.',addLink())+'</div>')+(h?addRow:'')};
 };
 V.lesson=function(a){
- var x=lesson(a[1]);if(!x)return V.books();
+ var x=lesson(a[1]);if(!x)return V.books([]);
  S.ui.lang=x.lang;S.ui.last={lang:x.lang,lesson:x.id};save();
  var nv=S.vocab.filter(function(v){return v.lesson===x.id}).length,ng=S.grammar.filter(function(v){return v.lesson===x.id}).length,nd=S.drills.filter(function(v){return v.lesson===x.id}).length,nn=S.notes.filter(function(v){return v.lesson===x.id}).length,rd=S.readings[x.id],pr=S.prog[x.id]||{};
  function row(n,key,t,sum,href){return '<a class="rw" href="'+href+'"><div class="num'+(pr[key]?' done':'')+'">'+n+'</div><div class="grow"><div class="b">'+t+'</div><div class="mute sm">'+sum+'</div></div><span>›</span></a>'}
- return {nav:'books',html:topbar([['Trang chủ','#/home'],['Sách','#/books'],[x.name]])+
+ return {nav:'books',html:topbar(lcrumbs(x,[x.name]))+
   '<h1 class="disp">'+esc(x.name)+'</h1><p class="mute" style="margin:6px 0 18px">'+esc(x.book)+' · '+esc(x.unit)+(x.title?' · '+esc(x.title):'')+'</p><div class="stack">'+
   row(1,'read','Bài đọc',rd?esc(rd.title||'Bài đọc'):'Chưa có bài đọc','#/read/'+x.id)+
   row(2,'vocab','Từ mới',nv+' từ','#/vocab/'+x.id)+
@@ -400,9 +437,9 @@ function conjUrl(w){var inf=String(w).split(/[ ,]/)[0];return 'https://leconjugu
 V.read=function(a){
  var x=lesson(a[1]);if(!x)return V.books();prog(x.id,'read');
  var r=S.readings[x.id];
- if(!r)return {nav:'books',html:topbar([['Trang chủ','#/home'],['Sách','#/books'],[x.name,'#/lesson/'+x.id],['Bài đọc']])+'<h1 class="disp">Bài đọc</h1><div style="margin-top:18px">'+empty('Bài này chưa có bài đọc.',addLink())+'</div>'};
+ if(!r)return {nav:'books',html:topbar(lcrumbs(x,[[x.name,'#/lesson/'+x.id],['Bài đọc']]))+'<h1 class="disp">Bài đọc</h1><div style="margin-top:18px">'+empty('Bài này chưa có bài đọc.',addLink())+'</div>'};
  var m=U.rd;
- return {nav:'books',html:topbar([['Trang chủ','#/home'],['Sách','#/books'],[x.name,'#/lesson/'+x.id],['Bài đọc']])+
+ return {nav:'books',html:topbar(lcrumbs(x,[[x.name,'#/lesson/'+x.id],['Bài đọc']]))+
   '<div class="row sp" style="margin-bottom:14px"><h1 class="disp">'+esc(r.title||'Bài đọc')+'</h1><div class="seg" role="tablist">'+[['read','Đọc'],['vocab','Từ mới'],['gram','Ngữ pháp']].map(function(t){return '<button class="'+(m===t[0]?'on':'')+'" role="tab" data-act="rmode" data-m="'+t[0]+'">'+t[1]+'</button>'}).join('')+'</div></div>'+
   '<div class="split"><div class="grow"><div class="card"><div id="rtext" class="rtext" lang="'+x.lang+'">'+renderText(r.text,m,x.id,x.lang)+'</div><div id="selbar" style="margin-top:12px"></div>'+
   (r.vi?'<hr class="l"><button class="btn ghost sm" data-act="tr">'+(U.tr?'Ẩn bản dịch':'Xem bản dịch tiếng Việt')+'</button>'+(U.tr?'<p class="pre" style="margin-top:12px">'+esc(r.vi)+'</p>':''):'')+'</div></div>'+
@@ -438,7 +475,7 @@ V.vocab=function(a){
  if(U.vf.scope!==lid){U.vf.scope=lid;U.vf.lesson=lid;U.deck.i=0}
  var all=S.vocab.filter(function(v){return v.lang===l}),st={'Mới':0,'Đang học':0,'Hay sai':0,'Đã thuộc':0};all.forEach(function(v){st[stateOf(v)]++});
  var d=S.log[today()]||{},tot=all.length||1;
- var crumbs=lid==='all'?[['Trang chủ','#/home'],['Kho','#/kho'],['Từ vựng']]:[['Trang chủ','#/home'],['Sách','#/books'],[lname(lid).split(' · ')[0],'#/lesson/'+lid],['Từ mới']];
+ var crumbs=lid==='all'?[['Trang chủ','#/home'],['Kho','#/kho'],['Từ vựng']]:lcrumbs(lesson(lid)||{book:'',unit:''},[[lname(lid).split(' · ')[0],'#/lesson/'+lid],['Từ mới']]);
  var colors={'Mới':'#CFE0F3','Đang học':'#CFE3DC','Hay sai':'#F2C6CD','Đã thuộc':'#5E8B7E'};
  return {nav:lid==='all'?'kho':'books',html:topbar(crumbs)+
   '<h1 class="disp">'+(lid==='all'?'Từ vựng · '+LANGS[l].n:'Từ mới')+'</h1>'+
@@ -455,7 +492,7 @@ V.grammar=function(a){
  var lid=a[1]||'all',l=L(),x=lid!=='all'&&lesson(lid);
  if(x){l=x.lang;S.ui.lang=l;prog(lid,'grammar')}
  var items=S.grammar.filter(function(g){return g.lang===l&&(!x||g.lesson===lid)});
- var gf=x?'all':U.gf,crumbs=x?[['Trang chủ','#/home'],['Sách','#/books'],[x.name,'#/lesson/'+lid],['Ngữ pháp']]:[['Trang chủ','#/home'],['Kho','#/kho'],['Ngữ pháp']];
+ var gf=x?'all':U.gf,crumbs=x?lcrumbs(x,[[x.name,'#/lesson/'+lid],['Ngữ pháp']]):[['Trang chủ','#/home'],['Kho','#/kho'],['Ngữ pháp']];
  var chips=x?'':'<div class="row" style="margin:14px 0"><button class="chip'+(gf==='all'?' on':'')+'" data-act="gf" data-g="all">Tất cả ('+items.length+')</button>'+Object.keys(GROUPS).map(function(k){var n=items.filter(function(g){return g.group===k}).length;return '<button class="chip'+(gf===k?' on':'')+'" data-act="gf" data-g="'+k+'">'+GROUPS[k]+' ('+n+')</button>'}).join('')+'</div>';
  var list=items.filter(function(g){return gf==='all'||g.group===gf});
  return {nav:x?'books':'kho',html:topbar(crumbs)+'<h1 class="disp">Ngữ pháp'+(x?'':' · '+LANGS[l].n)+'</h1>'+chips+'<div class="stack" style="margin-top:14px">'+(list.map(function(g){return '<a class="rw" href="#/g/'+g.id+'"><span class="tag gk-'+g.group+'">'+GROUPS[g.group]+'</span><div class="grow"><div class="b">'+esc(g.name)+'</div><div class="mute sm">'+esc(g.formula)+'</div></div><span>›</span></a>'}).join('')||empty('Chưa có điểm ngữ pháp nào.',addLink()))+'</div>'};
@@ -475,7 +512,7 @@ V.g=function(a){
 V.practice=function(a){
  var lid=a[1]||'all',x=lid!=='all'&&lesson(lid),l=x?x.lang:L();if(x)prog(lid,'practice');
  var ds=S.drills.filter(function(d){return d.lang===l&&(!x||d.lesson===lid)});
- return {nav:x?'books':'kho',html:topbar(x?[['Trang chủ','#/home'],['Sách','#/books'],[x.name,'#/lesson/'+lid],['Luyện tập']]:[['Trang chủ','#/home'],['Kho','#/kho'],['Luyện tập']])+'<h1 class="disp">Luyện tập</h1><div class="stack" style="margin-top:16px">'+
+ return {nav:x?'books':'kho',html:topbar(x?lcrumbs(x,[[x.name,'#/lesson/'+lid],['Luyện tập']]):[['Trang chủ','#/home'],['Kho','#/kho'],['Luyện tập']])+'<h1 class="disp">Luyện tập</h1><div class="stack" style="margin-top:16px">'+
   (ds.map(function(d,i){var open=U.rev[d.id];return '<div class="card"><div class="b">'+(i+1)+'. '+esc(d.q)+'</div>'+(open?'<p style="margin-top:10px"><span class="tag sage">Đáp án</span> <b>'+esc(d.a)+'</b></p><p class="mute sm" style="margin-top:6px">'+esc(d.why||'')+'</p>':'<button class="btn ghost sm" style="margin-top:10px" data-act="reveal" data-id="'+d.id+'">Xem đáp án</button>')+'</div>'}).join('')||empty('Chưa có câu luyện tập.',addLink()))+'</div>'};
 };
 /* notes */
@@ -484,7 +521,7 @@ V.notes=function(a){
  var type=new URLSearchParams((location.hash.split('?')[1])||'').get('type');
  var ns=S.notes.filter(function(n){return n.lang===l&&(!x||n.lesson===lid)&&(!type||n.type===type)});
  var ttl=type?NOTE_TYPES[type]:'Ghi chú';
- return {nav:x?'books':'kho',html:topbar(x?[['Trang chủ','#/home'],['Sách','#/books'],[x.name,'#/lesson/'+lid],['Thêm']]:[['Trang chủ','#/home'],['Kho','#/kho'],[ttl]])+'<h1 class="disp">'+(x?'Thêm · mở rộng':ttl)+'</h1>'+
+ return {nav:x?'books':'kho',html:topbar(x?lcrumbs(x,[[x.name,'#/lesson/'+lid],['Thêm']]):[['Trang chủ','#/home'],['Kho','#/kho'],[ttl]])+'<h1 class="disp">'+(x?'Thêm · mở rộng':ttl)+'</h1>'+
   (x?'<p class="mute" style="margin-top:6px">Phát âm, văn hóa và ghi chú mở rộng của bài này.</p>':'')+'<div class="stack" style="margin-top:16px">'+
   (ns.map(function(n){return '<div class="card"><span class="tag sky">'+(NOTE_TYPES[n.type]||'Ghi chú')+'</span><h3 style="margin:8px 0">'+esc(n.title)+'</h3><p class="pre">'+esc(n.body)+'</p><p class="mute sm" style="margin-top:10px">'+esc(lname(n.lesson))+'</p></div>'}).join('')||empty('Chưa có ghi chú nào. Hỏi Claude (ví dụ về phát âm), rồi dán kết quả vào trang Thêm.',addLink()))+'</div>'};
 };
@@ -543,9 +580,9 @@ V.settings=function(){
 var SAMPLE='{\n  "schema": "whp1",\n  "lesson": {"lang":"fr","book":"Inspire 2","unit":"Unité 1","no":3,"summary":"..."},\n  "reading": {"title":"...","text":"...","translation_vi":"..."},\n  "vocab": [{"w":"croiser","pos":"v.","ipa":"/kʁwa.ze/","phon_vi":"","vi":"tình cờ gặp","en":"to pass","ex":"...","topic":"","forms":["croisons"],"verb":true}],\n  "grammar": [{"group":"pron","name":"qui / que","formula":"...","examples":[{"t":"...","vi":"..."}],"deep":"","compare":"","errors":"","marks":["que je"]}],\n  "drills": [{"q":"... ___ ...","a":"que","why":"..."}],\n  "notes": [{"type":"pron","title":"...","body":"..."}]\n}';
 function pkgSummary(p){var a=[];if(p.lesson)a.push('bài '+(p.lesson.name||p.lesson.no));if(p.reading)a.push('bài đọc');['vocab','grammar','drills','notes'].forEach(function(k){if(p[k].length)a.push(p[k].length+' '+{vocab:'từ',grammar:'ngữ pháp',drills:'câu luyện',notes:'ghi chú'}[k])});return a.join(' · ')||'(trống)'}
 V.add=function(){
- var inbox=S.inbox.map(function(it){var p=it.pkg;return '<div class="card"><span class="tag sky">Chưa duyệt</span> <span class="tag">'+LANGS[p.lang].n+'</span><div class="b" style="margin:8px 0 2px">'+esc(it.title)+'</div><div class="mute sm">'+esc(pkgSummary(p))+'</div><div class="row" style="margin-top:12px"><button class="btn sage sm" data-act="accept" data-id="'+it.id+'">Chấp nhận</button><button class="btn ghost sm" data-act="editin" data-id="'+it.id+'">Sửa</button><button class="btn pink sm" data-act="dropin" data-id="'+it.id+'">Bỏ</button></div></div>'}).join('');
+ var inbox=S.inbox.map(function(it){var p=it.pkg;return '<div class="card"><span class="tag sky">Chưa duyệt</span> <span class="tag">'+LANGS[p.lang].n+'</span><div class="b" style="margin:8px 0 2px">'+esc(it.title)+'</div><div class="mute sm">'+esc(pkgSummary(p))+'</div><div class="sm" style="margin-top:6px">Gắn vào: <b>'+esc(p.lesson?[p.lesson.book,p.lesson.unit,p.lesson.name||('bài '+(p.lesson.no||'?'))].filter(Boolean).join(' › '):'(không gắn bài)')+'</b></div><div class="row" style="margin-top:12px"><button class="btn ghost sm" data-act="setplace" data-id="'+it.id+'">Đổi vị trí</button><button class="btn sage sm" data-act="accept" data-id="'+it.id+'">Chấp nhận</button><button class="btn ghost sm" data-act="editin" data-id="'+it.id+'">Sửa</button><button class="btn pink sm" data-act="dropin" data-id="'+it.id+'">Bỏ</button></div></div>'}).join('');
  return {nav:'home',html:topbar([['Trang chủ','#/home'],['Thêm bài mới']])+'<h1 class="disp">Thêm bài mới</h1><p class="mute" style="margin:6px 0 16px">Gửi trang sách cho Claude, nhờ trả khối dữ liệu JSON, rồi dán vào đây. Mọi mục vào hộp nhận trước, bạn duyệt xong mới vào Học.</p>'+
-  '<div class="split"><div class="grow"><div class="card"><label class="f" for="paste">Dán khối dữ liệu từ Claude<textarea id="paste" class="in mono" placeholder=\'{"schema":"whp1", ...}\' data-in="paste"></textarea></label><div class="row" style="margin-top:14px"><label class="f" style="flex-direction:row;align-items:center;gap:8px">Ngôn ngữ mặc định'+langChips()+'</label></div><div class="row" style="margin-top:14px"><button class="btn" data-act="toinbox">Đưa vào hộp nhận</button><button class="btn ghost" data-act="sample">Dán mẫu cấu trúc</button></div></div></div>'+
+  '<div class="split"><div class="grow"><div class="card"><label class="f" for="paste">Dán khối dữ liệu từ Claude<textarea id="paste" class="in mono" placeholder=\'{"schema":"whp1", ...}\' data-in="paste"></textarea></label><div class="gh">Gắn vào đâu</div><form id="pl"><p class="mute sm" style="margin-bottom:10px">Chọn sách/unit/bài để gắn nội dung. Chọn “theo dữ liệu JSON” nếu muốn dùng thông tin trong khối dữ liệu (hoặc không gắn bài).</p>'+placeHTML(S.ui.place?{book:S.ui.place.book,unit:S.ui.place.unit,no:S.ui.place.no?S.ui.place.no+1:''}:{},L())+'</form><div class="row" style="margin-top:14px"><label class="f" style="flex-direction:row;align-items:center;gap:8px">Ngôn ngữ mặc định'+langChips()+'</label></div><div class="row" style="margin-top:14px"><button class="btn" data-act="toinbox">Đưa vào hộp nhận</button><button class="btn ghost" data-act="sample">Dán mẫu cấu trúc</button></div></div></div>'+
   '<div class="side"><div class="card"><h3>Hộp nhận ('+S.inbox.length+')</h3><div class="stack" style="margin-top:12px">'+(inbox||'<p class="mute sm">Trống. Mục mới sẽ hiện ở đây.</p>')+'</div></div></div></div>'};
 };
 function normalize(o,def){
@@ -573,8 +610,10 @@ function titleOf(p){return (p.lesson&&(p.lesson.name||('Bài '+p.lesson.no)))||(
 function acceptPkg(p){
  var lid=null,lang=p.lang,cnt={v:0,g:0};
  if(p.lesson){
-  var le=p.lesson,name=le.name||((lang==='fr'?'Leçon ':'Bài ')+le.no),ex=S.lessons.find(function(z){return z.lang===lang&&z.book===(le.book||'')&&z.unit===(le.unit||'')&&z.name===name});
-  if(!ex){ex={id:'l'+uid(),lang:lang,book:le.book||'Sách',unit:le.unit||'',no:+le.no||lessonsOf(lang).length+1,name:name,title:le.title||'',summary:le.summary||''};S.lessons.push(ex)}
+  var le=Object.assign({},p.lesson);le.book=canon(le.book||'Sách',bookList(lang));le.unit=canon(le.unit||'',unitList(lang));le.no=+le.no||(lessonsOf(lang).length+1);var name=le.name||((lang==='fr'?'Leçon ':'Bài ')+le.no),ex=S.lessons.find(function(z){return z.lang===lang&&z.book===(le.book||'')&&z.unit===(le.unit||'')&&z.name===name});
+  if(!ex){ex={id:'l'+uid(),lang:lang,book:le.book||'Sách',unit:le.unit||'',no:le.no,name:name,title:le.title||'',summary:le.summary||''};S.lessons.push(ex)}
+  else{if(le.title)ex.title=le.title;if(le.summary)ex.summary=le.summary}
+  if(!ex.title&&le.title)ex.title=le.title;if((!ex.summary||/^Chưa có|^Bài mẫu/.test(ex.summary))&&le.summary)ex.summary=le.summary;
   lid=ex.id;
  }
  if(p.reading&&lid)S.readings[lid]=p.reading;
@@ -588,7 +627,7 @@ function acceptPkg(p){
 /* ---------- actions ---------- */
 var A={};
 A.back=function(){if(navDepth>0){goingBack=true;history.back()}else{location.hash=parentRoute()}};
-function parentRoute(){var h=(location.hash||'#/home').slice(2).split('?')[0].split('/'),r=h[0];if(r==='home')return '#/home';if(r==='read'||r==='vocab'||r==='grammar'||r==='practice'||r==='notes'){return (h[1]&&h[1]!=='all')?'#/lesson/'+h[1]:'#/kho'}if(r==='g'){var g=S.grammar.find(function(x){return x.id===h[1]});return g&&g.lesson?'#/grammar/'+g.lesson:'#/kho'}if(r==='lesson')return '#/books';return '#/home'}
+function parentRoute(){var h=(location.hash||'#/home').slice(2).split('?')[0].split('/'),r=h[0];if(r==='home')return '#/home';if(r==='read'||r==='vocab'||r==='grammar'||r==='practice'||r==='notes'){return (h[1]&&h[1]!=='all')?'#/lesson/'+h[1]:'#/kho'}if(r==='g'){var g=S.grammar.find(function(x){return x.id===h[1]});return g&&g.lesson?'#/grammar/'+g.lesson:'#/kho'}if(r==='lesson'){var le=lesson(h[1]);return le?'#/books/'+encodeURIComponent(le.book)+'/'+encodeURIComponent(le.unit):'#/books'}if(r==='books')return h.length>1?'#/books':'#/home';return '#/home'}
 A.lang=function(el){S.ui.lang=el.dataset.l;U.vf.lesson='all';U.gf='all';save();var h=(location.hash||'').slice(2).split('/')[0];if(h==='lesson'||h==='read'||h==='g'||h==='run'||(h==='vocab'&&location.hash.indexOf('/all')<0)||(h==='grammar'&&location.hash.indexOf('/all')<0)||h==='practice'||h==='notes')location.hash='#/books';else if(h==='lang')location.hash='#/lang/'+S.ui.lang;else render()};
 A.rmode=function(el){U.rd=el.dataset.m;U.sel=null;render()};
 A.tr=function(){U.tr=!U.tr;render()};
@@ -625,12 +664,18 @@ function fallbackCopy(s){modal('<h3>Sao chép thủ công</h3><p class="mute sm"
 A.reset=function(){modal('<h3>Đặt lại toàn bộ?</h3><p class="mute" style="margin:8px 0 16px">Dữ liệu hiện tại sẽ bị xóa và thay bằng dữ liệu mẫu.</p><div class="row"><button class="btn pink" data-act="reset2">Đặt lại</button><button class="btn ghost" data-act="close">Hủy</button></div>')};
 A.reset2=function(){S=fix(SEED());R=null;save();closeModal();location.hash='#/home';render();toast('Đã đặt lại')};
 A.close=closeModal;
+A.setplace=function(el){var it=S.inbox.find(function(x){return x.id===el.dataset.id});if(!it)return;var le=it.pkg.lesson||{};modal('<h3>Đổi vị trí</h3><form id="pl2" data-id="'+it.id+'" style="margin-top:12px">'+placeHTML({book:le.book,unit:le.unit,no:le.no,name:le.name},it.pkg.lang)+'<div class="row" style="margin-top:16px"><button class="btn sage" type="submit">Lưu</button><button class="btn ghost" type="button" data-act="close">Hủy</button></div></form>')};
+A.editbook=function(el){var b=el.dataset.b;modal('<h3>Sửa sách</h3><form id="eb" data-b="'+esc(b)+'" style="margin-top:12px"><div class="fgrid"><label class="f">Tên sách<input class="in" name="n" required value="'+esc(b)+'"></label><label class="f">Loại<select class="in" name="k"><option value="text"'+(kindOf(L(),b)==='text'?' selected':'')+'>Giáo trình</option><option value="ext"'+(kindOf(L(),b)==='ext'?' selected':'')+'>Tài liệu ngoài</option></select></label></div><div class="row" style="margin-top:16px"><button class="btn sage" type="submit">Lưu</button><button class="btn ghost" type="button" data-act="close">Hủy</button></div></form>')};
+A.editunit=function(el){modal('<h3>Sửa tên unit</h3><form id="eu" data-b="'+esc(el.dataset.b)+'" data-u="'+esc(el.dataset.u)+'" style="margin-top:12px"><label class="f">Tên unit<input class="in" name="n" required value="'+esc(el.dataset.u)+'"></label><div class="row" style="margin-top:16px"><button class="btn sage" type="submit">Lưu</button><button class="btn ghost" type="button" data-act="close">Hủy</button></div></form>')};
+A.editlesson=function(el){var x=lesson(el.dataset.id);if(!x)return;modal('<h3>Sửa vị trí & tên bài</h3><form id="el" data-id="'+x.id+'" style="margin-top:12px">'+placeHTML({book:x.book,unit:x.unit,no:x.no,name:x.name},x.lang)+'<label class="f" style="margin-top:14px">Tiêu đề bài (nếu sách có)<input class="in" name="title" value="'+esc(x.title||'')+'"></label><div class="row" style="margin-top:16px"><button class="btn sage" type="submit">Lưu</button><button class="btn ghost" type="button" data-act="close">Hủy</button></div></form>')};
 A.sample=function(){document.getElementById('paste').value=SAMPLE};
 A.toinbox=function(){
  var t=document.getElementById('paste').value.trim();if(!t)return toast('Hãy dán dữ liệu vào ô trước');
  var o;try{o=JSON.parse(t)}catch(e){return toast('Dữ liệu chưa đúng định dạng JSON: '+e.message.slice(0,60))}
  var ps=normalize(o,L()).filter(function(p){return p.vocab.length||p.grammar.length||p.drills.length||p.notes.length||p.reading||p.lesson});
  if(!ps.length)return toast('Không tìm thấy nội dung nào trong dữ liệu này');
+ var pl=readPlace(document.getElementById('pl'),L());
+ if(pl.book){ps.forEach(function(p){if(!p.vocab.length&&!p.grammar.length&&!p.drills.length&&!p.notes.length&&!p.reading)return;p.lesson=Object.assign({},p.lesson||{},{lang:p.lang,book:pl.book,unit:pl.unit,no:pl.no,name:pl.name})});S.ui.place={book:pl.book,unit:pl.unit,no:pl.no}}
  ps.forEach(function(p){S.inbox.push({id:uid(),title:titleOf(p),pkg:p,ts:now()})});save();render();toast('Đã đưa '+ps.length+' mục vào hộp nhận');
 };
 A.accept=function(el){var i=S.inbox.findIndex(function(x){return x.id===el.dataset.id});if(i<0)return;var c=acceptPkg(S.inbox[i].pkg);S.inbox.splice(i,1);save();render();toast('Đã thêm: '+c.v+' từ, '+c.g+' ngữ pháp (mục trùng được bỏ qua)')};
@@ -688,6 +733,11 @@ document.addEventListener('click',function(ev){
 document.addEventListener('submit',function(ev){
  var f=ev.target;
  if(f.id==='aw'){ev.preventDefault();submitAdd(f);return}
+ if(f.id==='pl'){ev.preventDefault();return}
+ if(f.id==='pl2'){ev.preventDefault();var it=S.inbox.find(function(x){return x.id===f.dataset.id}),pl=readPlace(f,it.pkg.lang);if(pl.book)it.pkg.lesson=Object.assign({},it.pkg.lesson||{},{lang:it.pkg.lang,book:pl.book,unit:pl.unit,no:pl.no,name:pl.name});else it.pkg.lesson=null;save();closeModal();render();return}
+ if(f.id==='eb'){ev.preventDefault();var l=L(),o=f.dataset.b,n=canon(new FormData(f).get('n'),bookList(l).filter(function(b){return b!==o}));S.lessons.forEach(function(x){if(x.lang===l&&x.book===o)x.book=n});delete S.kinds[l+'|'+o];S.kinds[l+'|'+n]=new FormData(f).get('k');save();closeModal();render();return}
+ if(f.id==='eu'){ev.preventDefault();var l2=L(),b=f.dataset.b,u=f.dataset.u,nn=canon(new FormData(f).get('n'),unitList(l2,b).filter(function(q){return q!==u}));S.lessons.forEach(function(x){if(x.lang===l2&&x.book===b&&x.unit===u)x.unit=nn});save();closeModal();location.hash='#/books/'+E(b)+'/'+E(nn);render();return}
+ if(f.id==='el'){ev.preventDefault();var x=lesson(f.dataset.id),pl3=readPlace(f,x.lang);if(!pl3.book)return toast('Hãy chọn hoặc nhập tên sách');x.book=pl3.book;x.unit=pl3.unit;x.no=pl3.no||x.no;x.name=pl3.name||((x.lang==='fr'?'Leçon ':'Bài ')+x.no);x.title=String(new FormData(f).get('title')||'').trim();save();closeModal();location.hash='#/books/'+E(x.book)+'/'+E(x.unit);render();return}
  if(f.dataset&&f.dataset.act==='khosearch'){A.khosearch(f,ev)}
 });
 document.addEventListener('input',function(ev){
@@ -696,6 +746,7 @@ document.addEventListener('input',function(ev){
 });
 document.addEventListener('change',function(ev){
  var t=ev.target;if(!t.dataset)return;
+ if(t.dataset.in==='bookSel'){var bn=document.getElementById('bnw');if(bn)bn.hidden=t.value!=='__new'}
  if(t.dataset.in==='capV'){S.set.capV=Math.max(0,Math.min(50,+t.value||0));save();toast('Đã lưu')}
  if(t.dataset.in==='capG'){S.set.capG=Math.max(0,Math.min(10,+t.value||0));save();toast('Đã lưu')}
  if(t.dataset.in==='import'&&t.files[0]){var fr=new FileReader();fr.onload=function(){try{var o=JSON.parse(fr.result);if(!o||!o.lessons||!o.vocab)throw 0;S=fix(o);R=null;save();toast('Đã nhập dữ liệu');location.hash='#/home';render()}catch(e){toast('File không đúng định dạng sao lưu')}};fr.readAsText(t.files[0])}
