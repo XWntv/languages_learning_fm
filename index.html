@@ -618,7 +618,7 @@ function acceptPkg(p){
  }
  if(p.reading&&lid)S.readings[lid]=p.reading;
  p.vocab.forEach(function(v){if(S.vocab.some(function(z){return z.lang===lang&&z.lesson===lid&&z.w.toLowerCase()===v.w.toLowerCase()}))return;var o=Object.assign({id:'v'+uid(),lang:lang,lesson:lid,srs:null},v);S.vocab.push(o);cnt.v++});
- p.grammar.forEach(function(g){if(S.grammar.some(function(z){return z.lang===lang&&z.name===g.name}))return;S.grammar.push(Object.assign({id:'g'+uid(),lang:lang,lesson:lid,srs:null},g));cnt.g++});
+ p.grammar.forEach(function(g){var eg=S.grammar.find(function(z){return z.lang===lang&&z.name===g.name});if(eg){if(g.marks&&g.marks.length&&!(eg.marks&&eg.marks.length)){eg.marks=g.marks;cnt.g++}return}S.grammar.push(Object.assign({id:'g'+uid(),lang:lang,lesson:lid,srs:null},g));cnt.g++});
  p.drills.forEach(function(d){S.drills.push({id:'d'+uid(),lang:lang,lesson:lid,q:d.q,a:d.a||'',why:d.why||''})});
  p.notes.forEach(function(n){S.notes.push(Object.assign({id:'n'+uid(),lang:lang,lesson:lid},n))});
  return cnt;
