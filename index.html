@@ -942,10 +942,19 @@ A.dellesson=function(el){
  else{S.prog[id]={};Lr=null;R=null;save();closeModal();location.hash='#/lesson/'+id;render();toast('Đã xóa nội dung, giữ lại bài')}
 };
 A.addnote=function(el){var x=lesson(el.dataset.id);if(!x)return;U.addType='class';S.ui.lang=x.lang;U.placePre={book:x.book,unit:x.unit,no:x.no,name:x.name};location.hash='#/add'};
+function parseLoose(t){
+ var a=t.indexOf('{'),b=t.lastIndexOf('}'),c=t.indexOf('['),d=t.lastIndexOf(']');
+ var st=a>=0&&(c<0||a<c)?a:c,en=st===a?b:d;
+ var core=st>=0&&en>st?t.slice(st,en+1):t,tries=[core,core.replace(/,\s*([}\]])/g,'$1'),core.replace(/,\s*([}\]])/g,'$1').replace(/[“”]/g,'"').replace(/[‘’]/g,"'")],err=null;
+ for(var i=0;i<tries.length;i++){try{return {o:JSON.parse(tries[i])}}catch(e){if(!err)err={msg:e.message,txt:tries[i]}}}
+ var m=/position (\d+)/.exec(err.msg),pos=m?+m[1]:-1,trunc=st>=0&&en<=st+10||(t.trim().slice(-1)!=='}'&&t.trim().slice(-1)!==']'&&!/```\s*$/.test(t.trim()));
+ return {err:1,msg:err.msg,pos:pos,snippet:pos>=0?err.txt.slice(Math.max(0,pos-60),pos)+'⟦LỖI Ở ĐÂY⟧'+err.txt.slice(pos,pos+60):'',trunc:trunc,len:t.length};
+}
+function jsonErr(r){modal('<h3>Chưa đọc được JSON</h3><p class="sm" style="margin:8px 0">'+(r.trunc?'<b>Có vẻ khối dữ liệu bị cắt cụt</b> (không kết thúc bằng dấu } ). Hãy nhờ Claude xuất lại, hoặc chia thành từng bài nhỏ. ':'')+'Nơi lỗi gần nhất:</p>'+(r.snippet?'<pre class="pre mono" style="white-space:pre-wrap;background:var(--sage-l);padding:10px;border-radius:12px;font-size:13px">'+esc(r.snippet)+'</pre>':'')+'<p class="mute sm" style="margin:8px 0">'+esc(r.msg)+' · độ dài đã dán: '+r.len+' ký tự. Gợi ý: nhờ Claude “xuất lại đúng JSON hợp lệ, một khối duy nhất”. Hãy dán đoạn trên cho Claude để sửa đúng chỗ.</p><button class="btn" data-act="close">Đóng</button>')}
 A.sample=function(){document.getElementById('paste').value=SAMPLE;U.pasteDraft=SAMPLE};
 A.toinbox=function(){
  var t=document.getElementById('paste').value.trim();if(!t)return toast('Hãy dán dữ liệu vào ô trước');
- var o;try{o=JSON.parse(t)}catch(e){return toast('Dữ liệu chưa đúng định dạng JSON: '+e.message.slice(0,60))}
+ var pr=parseLoose(t);if(pr.err)return jsonErr(pr);var o=pr.o;
  var ps=normalize(o,L()).filter(function(p){return p.vocab.length||p.grammar.length||p.drills.length||p.notes.length||p.reading||p.lesson});
  if(!ps.length)return toast('Không tìm thấy nội dung nào trong dữ liệu này');
  ps.forEach(function(p){p.src=U.addType==='book'?'book':U.addType==='class'?'class':'ext';if(U.addType==='class')p.date=today();if(U.addType==='ext')p.kind='ext'});
