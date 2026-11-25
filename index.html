@@ -789,9 +789,12 @@ function normalize(o,def){
 }
 function langOf(x,def){var l=x.lang||x.language||(x.lesson&&x.lesson.lang)||def;return LANGS[l]?l:def}
 function mkEx(e){return (e||[]).map(function(z){return typeof z==='string'?{t:z,vi:''}:{t:z.t||z.fr||z.text||'',vi:z.vi||z.translation||''}})}
-function mkV(v,lang){var w=v.w||v.word||v[lang]||v.fr||v.zh||v.term||v.title||'';var en=v.meaning_en||(v.en&&v.en!==w?v.en:'')||'';return {w:w,pos:v.pos||'',ipa:v.ipa||'',phon:v.phon_vi||v.phon||v.phonetic_vi||'',vi:v.vi||v.meaning_vi||'',en:en,ex:v.ex||v.example||'',topic:v.topic||'',domain:v.domain||'',level:v.level||'',verified:!!v.verified,note:v.note||'',page:v.page||'',forms:(v.forms&&v.forms.length?v.forms:[w]),verb:!!v.verb}}
+function keepSrc(o,x){if(x&&/^(ext|book|class)$/.test(x.src))o.src=x.src;return o}
+function mkV(v,lang){return keepSrc(mkV0(v,lang),v)}
+function mkG(g){return keepSrc(mkG0(g),g)}
+function mkV0(v,lang){var w=v.w||v.word||v[lang]||v.fr||v.zh||v.term||v.title||'';var en=v.meaning_en||(v.en&&v.en!==w?v.en:'')||'';return {w:w,pos:v.pos||'',ipa:v.ipa||'',phon:v.phon_vi||v.phon||v.phonetic_vi||'',vi:v.vi||v.meaning_vi||'',en:en,ex:v.ex||v.example||'',topic:v.topic||'',domain:v.domain||'',level:v.level||'',verified:!!v.verified,note:v.note||'',page:v.page||'',forms:(v.forms&&v.forms.length?v.forms:[w]),verb:!!v.verb}}
 function arr(x){return Array.isArray(x)?x:(x?String(x).split(/\n+/).filter(Boolean):[])}
-function mkG(g){return {group:GROUPS[g.group]?g.group:'sentence',name:g.name||g.title||'',formula:g.formula||'',book:g.book||'',examples:mkEx(g.examples),deep:g.deep||'',compare:g.compare||'',errors:g.errors||'',marks:g.marks||[],usage:arr(g.usage),table:g.table||[],fn:g.fn||'',level:g.level||'',page:g.page||'',note:g.note||'',verified:!!g.verified}}
+function mkG0(g){return {group:GROUPS[g.group]?g.group:'sentence',name:g.name||g.title||'',formula:g.formula||'',book:g.book||'',examples:mkEx(g.examples),deep:g.deep||'',compare:g.compare||'',errors:g.errors||'',marks:g.marks||[],usage:arr(g.usage),table:g.table||[],fn:g.fn||'',level:g.level||'',page:g.page||'',note:g.note||'',verified:!!g.verified}}
 function pkgFrom(x,def){var lang=langOf(x,def);return {lang:lang,lesson:x.lesson||null,reading:x.reading?{title:x.reading.title||'',text:x.reading.text||'',vi:x.reading.translation_vi||x.reading.vi||'',questions:(x.reading.questions||[]).filter(function(q){return q&&q.q})}:null,vocab:(x.vocab||[]).map(function(v){return mkV(v,lang)}).filter(function(v){return v.w}),grammar:(x.grammar||[]).map(mkG).filter(function(g){return g.name}),drills:(x.drills||[]).filter(function(d){return d.q}),notes:(x.notes||[]).filter(function(n){return n.title||n.body}).map(function(n){return {type:NOTE_TYPES[n.type]?n.type:'note',title:n.title||'',body:n.body||''}})}}
 function single(x,def){
  var lang=langOf(x,def),t=x.type||(x.formula?'grammar':'vocab'),p={lang:lang,lesson:null,reading:null,vocab:[],grammar:[],drills:[],notes:[]};
